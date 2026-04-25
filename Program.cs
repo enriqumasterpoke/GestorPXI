@@ -29,6 +29,22 @@ class Program
         
         Console.WriteLine($"[ESCUDO ACTIVO] ID protegido: {idProcesoActivo}\n");
 
+        //---INYECCION DE PRIORIDAD CPU---
+        try
+        {
+            Process procesoProtegido = Process.GetProcessById((int)idProcesoActivo);
+            procesoProtegido.PriorityClass = ProcessPriorityClass.High;
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"[MODO DIOS ACTIVADO] {procesoProtegido.ProcessName} tiene ahora maxima prioridad en la CPU.");
+            Console.ResetColor();   
+            Console.WriteLine("------------------------------------------------------");
+            }
+            catch
+        {
+            Console.WriteLine("[INFO] El proceso activo est protegido por windows. Prioridad estandar mantenida.\n");
+        }
+        
+
         Process[] procesos = Process.GetProcesses();
         List<Process> listaNegra = new List<Process>(); // Aquí guardaremos a los prisioneros
 
