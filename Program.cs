@@ -1,136 +1,197 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Collections.Generic; // Necesario para crear listas de objetivos
+using System.Threading;
+using System.Collections.Generic;
+using System.Threading.Tasks; // <-- NUEVO: Librería para Multihilo
 
 class Program
 {
-    // --- CONEXIÓN AL NÚCLEO DE WINDOWS (user32.dll) ---
+    // --- CONEXIONES AL NÚCLEO DE WINDOWS ---
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
-    // --- LAS LLAVES DE LA CÁMARA CRIOGÉNICA (ntdll.dll) ---
-    // Estas son las funciones secretas de Windows para congelar y descongelar
-    [DllImport("ntdll.dll")]
-    private static extern int NtSuspendProcess(IntPtr processHandle);
+    [DllImport("ntdll.dll", PreserveSig = false)]
+    public static extern void NtSuspendProcess(IntPtr processHandle);
 
-    [DllImport("ntdll.dll")]
-    private static extern int NtResumeProcess(IntPtr processHandle);
+    [DllImport("ntdll.dll", PreserveSig = false)]
+    public static extern void NtResumeProcess(IntPtr processHandle);
+
+    [DllImport("psapi.dll")]
+    private static extern int EmptyWorkingSet(IntPtr hwProc);
+
+    // --- VARIABLES GLOBALES DEL MOTOR ---
+    private static readonly HashSet<string> listaBlanca = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "explorer", "Taskmgr", "Code", "devenv", "System", "Idle", "Registry", "spoolsv", "LogonUI"
+    };
+    private static List<Process> listaNegra = new List<Process>();
+    
+    // NUEVO: El interruptor del Piloto Automático
+    private static bool pilotoAutomaticoActivo = false;
+    private static uint idProcesoActivo;
 
     static void Main()
     {
-        Console.WriteLine("=== GESTOR PXI: MODO BOOST (CRIOGENIZACIÓN) ===");
+        Console.Clear();
+        Console.Title = "PXI RACING ENGINE - High Performance Optimization";
         
-        IntPtr ventanaActiva = GetForegroundWindow();
-        GetWindowThreadProcessId(ventanaActiva, out uint idProcesoActivo);
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine(@"
+    __________   ___     ____  ___   __________   __________
+   / ____/ __ \/  |/ /  / __ \/   | / ____/  _/  / ____/ __ \
+  / /_  / /_/ / /|_/ /  / /_/ / /| |/ /    / /   / __/ / / / /
+ / __/ / _, _/ /  / /  / _, _/ ___ / /____/ /   / /___/ /_/ / 
+/_/   /_/ |_/_/  /_/  /_/ |_/_/  |_\____/___/  /_____/\____/  
+        ");
         
-        Console.WriteLine($"[ESCUDO ACTIVO] ID protegido: {idProcesoActivo}\n");
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine(" [ PIXIE ECOSYSTEM ] - Versión 1.3 AUTO");
+        Console.WriteLine(" [ STATUS ] Kernel: Windows | Optimizer: Active");
+        Console.WriteLine(" --------------------------------------------------");
+        Console.ResetColor();
 
-        //---INYECCION DE PRIORIDAD CPU---
-        try
+        IntPtr ventanaActiva = GetForegroundWindow();
+        GetWindowThreadProcessId(ventanaActiva, out idProcesoActivo);
+        
+        try 
         {
             Process procesoProtegido = Process.GetProcessById((int)idProcesoActivo);
             procesoProtegido.PriorityClass = ProcessPriorityClass.High;
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"[MODO DIOS ACTIVADO] {procesoProtegido.ProcessName} tiene ahora maxima prioridad en la CPU.");
-            Console.ResetColor();   
-            Console.WriteLine("------------------------------------------------------");
-            }
-            catch
-        {
-            Console.WriteLine("[INFO] El proceso activo est protegido por windows. Prioridad estandar mantenida.\n");
-        }
-        
+            Console.WriteLine($"[MODO DIOS] {procesoProtegido.ProcessName} protegido.\n");
+            Console.ResetColor();
+        } 
+        catch { }
 
-        Process[] procesos = Process.GetProcesses();
-        List<Process> listaNegra = new List<Process>(); // Aquí guardaremos a los prisioneros
-
-        foreach (Process proceso in procesos)
+        while (true)
         {
-            try
+            Console.WriteLine("=========================================");
+            Console.WriteLine("Elige una opción:");
+            Console.WriteLine("1 - Activar Radar Manual (Boost)");
+            Console.WriteLine("2 - Descongelar y Restaurar Sistema");
+            Console.WriteLine("3 - Salir del Motor PXI");
+            Console.WriteLine("4 - Purga Profunda (RAM Global y Red)");
+            // NUEVA OPCIÓN EN EL MENÚ
+            Console.WriteLine($"5 - Piloto Automático: {(pilotoAutomaticoActivo ? "ENCENDIDO [ON]" : "APAGADO [OFF]")}");
+            Console.Write("Opción: ");
+            string opcion = Console.ReadLine();
+
+            if (opcion == "1")
             {
-                long memoriaMB = proceso.WorkingSet64 / (1024 * 1024);
-
-                if (memoriaMB > 300 && proceso.Id != idProcesoActivo)
+                EjecutarRadar();
+                Console.WriteLine("\n[RADAR] Escaneo manual completado.");
+            }
+            else if (opcion == "2")
+            {
+                foreach (Process prisionero in listaNegra)
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"[OBJETIVO FIJADO] {proceso.ProcessName} | RAM: {memoriaMB} MB");
-                    Console.ResetColor();
-                    listaNegra.Add(proceso); // Añadimos el proceso a nuestra lista negra
+                    try { NtResumeProcess(prisionero.Handle); } catch { }
                 }
+                listaNegra.Clear();
+                Console.WriteLine("\n[SISTEMA RESTAURADO] Procesos liberados.");
             }
-            catch { continue; }
-        }
-
-        // Si la lista está vacía, no hay nada que hacer
-        if (listaNegra.Count == 0)
-        {
-            Console.WriteLine("El sistema está limpio. No hay objetivos para congelar.");
-            Console.WriteLine("Presiona Enter para salir.");
-            Console.ReadLine();
-            return; 
-        }
-
-        // --- EL PANEL DE CONTROL MANUAL ---
-        Console.WriteLine("\n¿Qué orden deseas ejecutar, Arquitecto?");
-        Console.WriteLine("[ 1 ] Congelar procesos (Activar Boost)");
-        Console.WriteLine("[ 2 ] Cancelar y salir");
-        
-        Console.Write("\nIngresa tu orden: ");
-        string opcion = Console.ReadLine();
-
-        if (opcion == "1")
-        {
-            Console.WriteLine("\n>>> INICIANDO SECUENCIA DE SUSPENSIÓN <<<");
-            foreach (Process objetivo in listaNegra)
+            else if (opcion == "4")
             {
-                try
+                Console.WriteLine("\n[INFO] Ejecutando purga...");
+                long ramTotalLiberada = 0;
+                int procesosPurgados = 0;
+
+                foreach (Process p in Process.GetProcesses())
                 {
-                    // ¡AQUÍ ESTÁ LA MAGIA! Disparamos el rayo congelante
-                    NtSuspendProcess(objetivo.Handle);
+                    if (listaBlanca.Contains(p.ProcessName)) continue;
+                    try 
+                    {
+                        long ramAntes = p.WorkingSet64;
+                        EmptyWorkingSet(p.Handle);
+                        if (p.WorkingSet64 < ramAntes)
+                        {
+                            ramTotalLiberada += (ramAntes - p.WorkingSet64);
+                            procesosPurgados++;
+                        }
+                    } 
+                    catch { }
+                }
+                try { Process.Start(new ProcessStartInfo("cmd.exe", "/c ipconfig /flushdns") { CreateNoWindow = true }); } catch { }
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"[REPORTE] {procesosPurgados} procesos optimizados. {(ramTotalLiberada / 1048576.0):F2} MB recuperados.\n");
+                Console.ResetColor();
+            }
+            else if (opcion == "5")
+            {
+                // INVERTIMOS EL ESTADO DEL PILOTO
+                pilotoAutomaticoActivo = !pilotoAutomaticoActivo; 
+                
+                if (pilotoAutomaticoActivo)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("\n[PILOTO AUTOMÁTICO ACTIVADO] El motor trabajará en las sombras cada 5 segundos.");
+                    Console.ResetColor();
                     
-                    Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine($"[CONGELADO] {objetivo.ProcessName} ha sido suspendido exitosamente.");
+                    // CREAMOS EL SEGUNDO CEREBRO (Multihilo)
+                    Task.Run(() => 
+                    {
+                        while (pilotoAutomaticoActivo)
+                        {
+                            EjecutarRadar();
+                            Thread.Sleep(5000); // Espera 5 segundos antes del próximo escaneo
+                        }
+                    });
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("\n[PILOTO AUTOMÁTICO DESACTIVADO] Control devuelto a modo manual.");
                     Console.ResetColor();
                 }
-                catch
-                {
-                    Console.WriteLine($"[DENEGADO] Windows protegió a {objetivo.ProcessName}. Requiere más privilegios.");
-                }
             }
-            
-            Console.WriteLine("\n==================================================");
-            Console.WriteLine("  ¡PXI BOOST ACTIVADO! LOS PROCESOS ESTÁN EN COMA  ");
-            Console.WriteLine("==================================================");
-            Console.WriteLine("Toda tu RAM y CPU están ahora libres para la tarea principal.");
-            Console.WriteLine("Cuando quieras restaurar el sistema, escribe 2 y presiona Enter.");
-            
-            // Atrapamos al programa aquí hasta que escribas "2"
-            while(Console.ReadLine() != "2") 
+            else if (opcion == "3") break;
+        }
+    }
+
+    // --- EL MOTOR SEPARADO EN UN MÓDULO RECICLABLE ---
+    static void EjecutarRadar()
+    {
+        foreach (Process objetivo in Process.GetProcesses())
+        {
+            if (objetivo.Id == idProcesoActivo || 
+                objetivo.Id == Process.GetCurrentProcess().Id || 
+                listaBlanca.Contains(objetivo.ProcessName) ||
+                listaNegra.Exists(p => p.Id == objetivo.Id))
             {
-                 Console.WriteLine("Comando no reconocido. Escribe 2 para restaurar y salir.");
+                continue;
             }
 
-            // --- SECUENCIA DE DESCONGELACIÓN ---
-            Console.WriteLine("\n>>> INICIANDO SECUENCIA DE DESCONGELACIÓN <<<");
-            foreach (Process objetivo in listaNegra)
+            try 
             {
-                try
+                TimeSpan tiempoInicial = objetivo.TotalProcessorTime;
+                DateTime lecturaInicial = DateTime.Now;
+                Thread.Sleep(100); 
+                TimeSpan tiempoFinal = objetivo.TotalProcessorTime;
+                DateTime lecturaFinal = DateTime.Now;
+
+                double usoCPU = (tiempoFinal.TotalMilliseconds - tiempoInicial.TotalMilliseconds) / 
+                                (lecturaFinal.Subtract(lecturaInicial).TotalMilliseconds * Environment.ProcessorCount) * 100;
+
+                bool amenazaRAM = objetivo.WorkingSet64 > 300000000;
+                bool amenazaCPU = usoCPU > 15;
+
+                if (amenazaRAM || amenazaCPU)
                 {
-                    NtResumeProcess(objetivo.Handle); // Despertamos al proceso
-                    Console.WriteLine($"[RESTAURADO] {objetivo.ProcessName} ha vuelto a la vida.");
+                    EmptyWorkingSet(objetivo.Handle);
+                    NtSuspendProcess(objetivo.Handle);
+                    listaNegra.Add(objetivo);
+
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    if (amenazaCPU) Console.WriteLine($"\n[AUTO-DEFENSA CPU] {objetivo.ProcessName} neutralizado.");
+                    else Console.WriteLine($"\n[AUTO-DEFENSA RAM] {objetivo.ProcessName} neutralizado.");
+                    Console.ResetColor();
                 }
-                catch { }
             }
-            Console.WriteLine("\nSistema restaurado a la normalidad. Presiona Enter para salir.");
-            Console.ReadLine();
-        }
-        else
-        {
-            Console.WriteLine("Operación cancelada. Sistema intacto.");
+            catch { }
         }
     }
 }

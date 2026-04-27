@@ -1,0 +1,15 @@
+C:\ProyectosPXI\GestorPXI\bin\Debug\net8.0\GestorPXI.exe
+C:\ProyectosPXI\GestorPXI\bin\Debug\net8.0\GestorPXI.deps.json
+C:\ProyectosPXI\GestorPXI\bin\Debug\net8.0\GestorPXI.runtimeconfig.json
+C:\ProyectosPXI\GestorPXI\bin\Debug\net8.0\GestorPXI.dll
+C:\ProyectosPXI\GestorPXI\bin\Debug\net8.0\GestorPXI.pdb
+C:\ProyectosPXI\GestorPXI\obj\Debug\net8.0\GestorPXI.GeneratedMSBuildEditorConfig.editorconfig
+C:\ProyectosPXI\GestorPXI\obj\Debug\net8.0\GestorPXI.AssemblyInfoInputs.cache
+C:\ProyectosPXI\GestorPXI\obj\Debug\net8.0\GestorPXI.AssemblyInfo.cs
+C:\ProyectosPXI\GestorPXI\obj\Debug\net8.0\GestorPXI.csproj.CoreCompileInputs.cache
+C:\ProyectosPXI\GestorPXI\obj\Debug\net8.0\GestorPXI.sourcelink.json
+C:\ProyectosPXI\GestorPXI\obj\Debug\net8.0\GestorPXI.dll
+C:\ProyectosPXI\GestorPXI\obj\Debug\net8.0\refint\GestorPXI.dll
+C:\ProyectosPXI\GestorPXI\obj\Debug\net8.0\GestorPXI.pdb
+C:\ProyectosPXI\GestorPXI\obj\Debug\net8.0\GestorPXI.genruntimeconfig.cache
+C:\ProyectosPXI\GestorPXI\obj\Debug\net8.0\ref\GestorPXI.dll
